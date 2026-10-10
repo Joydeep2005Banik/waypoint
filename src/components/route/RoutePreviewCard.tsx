@@ -8,7 +8,8 @@ import {
   RotateCcw,
   Play,
   Eye,
-  Cpu
+  Cpu,
+  ShieldAlert
 } from 'lucide-react';
 import { PreparedRoute } from '@/types/geo';
 import { Card } from '@/components/common/Card';
@@ -220,6 +221,19 @@ export function RoutePreviewCard({
             {isPreparing ? 'Caching Mission Data...' : 'Prepare Mission for Offline Use'}
           </Button>
         )}
+      </div>
+
+      {/* Pre-Departure Safety Review */}
+      <div className="p-4 rounded-xl bg-red-950/40 border border-red-900/50 space-y-3">
+        <div className="flex items-center gap-2 text-red-400 mb-2">
+          <ShieldAlert className="w-4 h-4" />
+          <h3 className="text-sm font-bold uppercase tracking-wider">Safety Review & Agreement</h3>
+        </div>
+        <ul className="text-xs text-slate-300 space-y-2 list-disc pl-4 leading-relaxed">
+          <li><strong>Eyes up:</strong> Do not interact with your phone while crossing roads or walking through hazardous or uneven areas. The device will chime when you arrive at a waypoint.</li>
+          <li><strong>No Guarantees:</strong> This route is automatically generated from public mapping data. We do not guarantee safe navigation, pedestrian infrastructure quality, or personal security along the path.</li>
+          <li><strong>No Emergency Services:</strong> This application does not track you remotely and cannot provide emergency response or search-and-rescue dispatch.</li>
+        </ul>
       </div>
 
       {/* Action Triggers */}

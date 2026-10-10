@@ -20,6 +20,7 @@ import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { OllamaAIProvider } from '@/services/ai/ollama-provider';
 import { AIProviderHealth } from '@/types/ai';
+import { IdbStorage } from '@/services/storage/idb-storage';
 
 export default function SettingsPage() {
   const [provider, setProvider] = useState<'deterministic' | 'ollama'>('deterministic');
@@ -245,27 +246,41 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <div className="flex items-center gap-2">
             <Database className="w-4 h-4 text-slate-400" />
-            <h2 className="text-sm font-semibold text-slate-200">Local Data Storage</h2>
+            <h2 className="text-sm font-semibold text-slate-200">Privacy & Data Management</h2>
           </div>
           <Badge variant="neutral" size="sm">Local Sandbox</Badge>
         </div>
 
-        <p className="text-xs text-slate-400 leading-relaxed">
-          Erase active mission snapshots and offline route caches stored in this browser.
-        </p>
+        <div className="space-y-3">
+          <p className="text-xs text-slate-400 leading-relaxed">
+            <strong>Location Privacy:</strong> Waypoint Autopilot only uses foreground location (when the app is active and visible) to determine waypoint arrival. It does not request background location access, and it does not store or transmit your continuous GPS history to any third-party server.
+          </p>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            <strong>Geographic Requests:</strong> Generating a mission requires querying OpenStreetMap servers (Overpass API, OSRM, Nominatim) for static point-of-interest data and pedestrian path geometries. These requests are anonymous and do not contain your continuous movement history.
+          </p>
+          <p className="text-xs text-slate-400 leading-relaxed pt-2">
+            Erase all cached missions, offline route data, and active navigation state stored locally in your browser.
+          </p>
+        </div>
 
         <Button
           variant="danger"
           size="sm"
           leftIcon={<Trash2 className="w-4 h-4" />}
-          onClick={() => {
+          onClick={async () => {
             if (typeof window !== 'undefined') {
-              localStorage.removeItem('waypoint_active_mission_snapshot');
-              alert('Local navigation snapshot cleared.');
+              try {
+                await IdbStorage.clearActiveState();
+                await IdbStorage.clearAllMissions();
+                alert('All local mission caches and navigation states have been purged.');
+              } catch (err) {
+                console.error(err);
+                alert('Failed to clear some local storage. It may already be empty.');
+              }
             }
           }}
         >
-          Purge Local Storage Snapshot
+          Purge All Local Mission Data
         </Button>
       </Card>
     </div>
