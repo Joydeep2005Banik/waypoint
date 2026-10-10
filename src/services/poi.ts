@@ -3,14 +3,18 @@ import { GeoCoordinates, PointOfInterest, ExplorationStyle } from '@/types/geo';
 import { haversineDistance } from '@/lib/geo';
 
 export class OverpassPoiService implements IPoiService {
-  private baseUrl: string;
+  private baseUrls: string[];
   private userAgent: string;
 
   constructor(
     baseUrl: string = process.env.NEXT_PUBLIC_OVERPASS_API_URL || 'https://overpass-api.de/api/interpreter',
     userAgent: string = 'WaypointAutopilot/0.1.0'
   ) {
-    this.baseUrl = baseUrl;
+    this.baseUrls = [
+      baseUrl,
+      'https://lz4.overpass-api.de/api/interpreter',
+      'https://z.overpass-api.de/api/interpreter'
+    ];
     this.userAgent = userAgent;
   }
 
@@ -86,33 +90,52 @@ export class OverpassPoiService implements IPoiService {
   ): Promise<PointOfInterest[]> {
     const query = this.buildOverpassQuery(center, radiusMeters, style);
 
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 16000);
+    let lastError: unknown = null;
+    let data: any = null;
 
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': this.userAgent,
-          Accept: 'application/json',
-        },
-        body: `data=${encodeURIComponent(query)}`,
-        signal: controller.signal,
-      });
+    for (const url of this.baseUrls) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000); // 12 seconds per attempt
 
-      clearTimeout(timeoutId);
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': this.userAgent,
+            Accept: 'application/json',
+          },
+          body: `data=${encodeURIComponent(query)}`,
+          signal: controller.signal,
+        });
 
-      if (!response.ok) {
-        throw new Error(
-          `Overpass POI service error (HTTP ${response.status}). The public service may be busy.`
-        );
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(
+            `Overpass POI service error (HTTP ${response.status}) at ${url}.`
+          );
+        }
+
+        data = await response.json();
+        break; // Success, break the loop
+      } catch (error: unknown) {
+        lastError = error;
+        // Continue to the next URL on failure
+        console.warn(`Failed to fetch POIs from ${url}:`, error);
       }
+    }
 
-      const data = await response.json();
-      if (!data || !Array.isArray(data.elements)) {
-        return [];
+    if (!data) {
+      if (lastError instanceof Error && lastError.name === 'AbortError') {
+         throw new Error('POI service request timed out. Please try a smaller exploration radius.');
       }
+      throw new Error('All Overpass POI service endpoints failed. The public service may be busy.');
+    }
+
+    if (!Array.isArray(data.elements)) {
+      return [];
+    }
 
       const pois: PointOfInterest[] = [];
 
@@ -174,12 +197,6 @@ export class OverpassPoiService implements IPoiService {
 
       // Deduplicate POIs that are clustered within 40 meters of each other
       return this.deduplicatePois(pois);
-    } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('POI service request timed out. Please try a smaller exploration radius.');
-      }
-      throw error;
-    }
   }
 
   private generateFallbackPoiName(tags: Record<string, string>, style: ExplorationStyle): string {
