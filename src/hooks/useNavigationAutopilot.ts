@@ -9,7 +9,7 @@ import {
 } from '@/types/navigation';
 import { PreparedRoute } from '@/types/geo';
 
-const ACTIVE_MISSION_STORAGE_KEY = 'waypoint_active_mission_snapshot';
+import { IdbStorage } from '@/services/storage/idb-storage';
 
 export function useNavigationAutopilot(
   route: PreparedRoute | null,
@@ -29,22 +29,33 @@ export function useNavigationAutopilot(
     // 1. Check for stored mission if no explicit route was passed
     if (!route) {
       if (typeof window !== 'undefined') {
-        const stored = localStorage.getItem(ACTIVE_MISSION_STORAGE_KEY);
-        if (stored) {
-          try {
-            const restored = NavigationStateMachine.restore(stored);
-            if (
-              restored.getSnapshot().state !== 'COMPLETED' &&
-              restored.getSnapshot().state !== 'CANCELLED'
-            ) {
-              smRef.current = restored;
-              const unsubscribe = restored.subscribe((snap) => setSnapshot(snap));
-              return () => unsubscribe();
+        IdbStorage.getActiveState().then((stored) => {
+          if (stored) {
+            try {
+              const restored = NavigationStateMachine.restore(stored);
+              if (
+                restored.getSnapshot().state !== 'COMPLETED' &&
+                restored.getSnapshot().state !== 'CANCELLED'
+              ) {
+                smRef.current = restored;
+                const unsubscribe = restored.subscribe((snap) => setSnapshot(snap));
+                setSnapshot(restored.getSnapshot()); // Set initial state
+                
+                // Set up new subscriber to persist changes from restored state
+                restored.subscribe((snap) => {
+                  if (snap.state !== 'COMPLETED' && snap.state !== 'CANCELLED') {
+                    IdbStorage.saveActiveState(restored.serialize()).catch(console.error);
+                  } else {
+                    IdbStorage.clearActiveState().catch(console.error);
+                  }
+                });
+              }
+            } catch (error) {
+              console.error('Failed to restore mission state:', error);
+              IdbStorage.clearActiveState().catch(console.error);
             }
-          } catch {
-            localStorage.removeItem(ACTIVE_MISSION_STORAGE_KEY);
           }
-        }
+        }).catch(console.error);
       }
       return;
     }
@@ -58,9 +69,9 @@ export function useNavigationAutopilot(
       // Persist active snapshot
       if (typeof window !== 'undefined') {
         if (snap.state !== 'COMPLETED' && snap.state !== 'CANCELLED') {
-          localStorage.setItem(ACTIVE_MISSION_STORAGE_KEY, sm.serialize());
+          IdbStorage.saveActiveState(sm.serialize()).catch(console.error);
         } else {
-          localStorage.removeItem(ACTIVE_MISSION_STORAGE_KEY);
+          IdbStorage.clearActiveState().catch(console.error);
         }
       }
     });
@@ -145,7 +156,7 @@ export function useNavigationAutopilot(
   const cancel = useCallback(() => {
     smRef.current?.cancel();
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(ACTIVE_MISSION_STORAGE_KEY);
+      IdbStorage.clearActiveState().catch(console.error);
     }
   }, []);
 
@@ -163,7 +174,7 @@ export function useNavigationAutopilot(
 
   const resetMission = useCallback(() => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(ACTIVE_MISSION_STORAGE_KEY);
+      IdbStorage.clearActiveState().catch(console.error);
     }
     setSnapshot(null);
     smRef.current = null;

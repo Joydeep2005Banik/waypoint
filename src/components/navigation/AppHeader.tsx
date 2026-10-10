@@ -1,9 +1,12 @@
 import React from 'react';
 import Link from 'next/link';
-import { Compass, Shield, Radio } from 'lucide-react';
+import { Compass, Shield, Radio, WifiOff } from 'lucide-react';
 import { Badge } from '@/components/common/Badge';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 export function AppHeader() {
+  const isOnline = useOnlineStatus();
+
   return (
     <header className="sticky top-0 z-30 w-full bg-surface/90 backdrop-blur-md border-b border-surface-border">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
@@ -35,6 +38,14 @@ export function AppHeader() {
               <span>Local Storage</span>
             </Badge>
           </div>
+
+          {/* Offline/Online Indicator */}
+          {!isOnline && (
+            <Badge variant="warning" size="sm">
+              <WifiOff className="w-3 h-3" />
+              <span>Offline Mode</span>
+            </Badge>
+          )}
 
           {/* GPS Readiness Indicator */}
           <Badge variant="success" size="sm" dot>

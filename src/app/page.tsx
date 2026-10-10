@@ -32,8 +32,11 @@ import { OverpassPoiService } from '@/services/poi';
 import { OsrmRoutingService } from '@/services/routing';
 import { NominatimGeocodingService } from '@/services/geocoding';
 import { RouteGenerator } from '@/services/route-generator';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 export default function HomePage() {
+  const isOnline = useOnlineStatus();
+
   // Setup inputs state
   const [selectedLocation, setSelectedLocation] = useState<GeoCoordinates | null>(null);
   const [locationName, setLocationName] = useState<string>('');
@@ -388,11 +391,15 @@ export default function HomePage() {
               variant="primary"
               size="lg"
               fullWidth
-              disabled={isGenerating || !selectedLocation}
+              disabled={isGenerating || !selectedLocation || !isOnline}
               leftIcon={isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-current" />}
               onClick={handleGenerateRoute}
             >
-              {isGenerating ? 'Discovering Destinations & Calculating Route...' : 'Generate Waypoint Route'}
+              {!isOnline 
+                ? 'Network Required to Generate Routes' 
+                : isGenerating 
+                  ? 'Discovering Destinations & Calculating Route...' 
+                  : 'Generate Waypoint Route'}
             </Button>
             <p className="text-center text-[11px] text-slate-500 mt-2">
               Retrieves real OpenStreetMap destinations and calculates true pedestrian path geometry

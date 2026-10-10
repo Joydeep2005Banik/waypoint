@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AppHeader } from '@/components/navigation/AppHeader';
 import { AppBottomNav } from '@/components/navigation/AppBottomNav';
+import { PwaRegistrar } from '@/components/pwa-registrar';
 
 export const metadata: Metadata = {
   title: 'Waypoint Autopilot — Outdoor Pedestrian Exploration',
@@ -27,6 +28,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="bg-background text-slate-100 min-h-screen flex flex-col antialiased selection:bg-primary/20 selection:text-primary-light">
+        <PwaRegistrar />
         <AppHeader />
         <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 pt-4 pb-24 sm:pb-20">
           {children}

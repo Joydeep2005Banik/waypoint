@@ -14,6 +14,8 @@ import { PreparedRoute } from '@/types/geo';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { Badge } from '@/components/common/Badge';
+import { IdbStorage } from '@/services/storage/idb-storage';
+import { Download, Trash2, CheckCircle, WifiOff } from 'lucide-react';
 
 export interface RoutePreviewCardProps {
   route: PreparedRoute;
@@ -26,6 +28,37 @@ export function RoutePreviewCard({
   onReset,
   onStartNavigation,
 }: RoutePreviewCardProps) {
+  const [isPrepared, setIsPrepared] = React.useState(false);
+  const [isPreparing, setIsPreparing] = React.useState(false);
+
+  React.useEffect(() => {
+    IdbStorage.getMission(route.id).then((m) => {
+      if (m) setIsPrepared(true);
+    });
+  }, [route.id]);
+
+  const handlePrepareOffline = async () => {
+    setIsPreparing(true);
+    try {
+      await IdbStorage.saveMission(route);
+      setIsPrepared(true);
+    } catch (err) {
+      console.error('Failed to prepare for offline:', err);
+      alert('Failed to cache mission for offline use. Storage quota may be exceeded.');
+    } finally {
+      setIsPreparing(false);
+    }
+  };
+
+  const handleRemoveOffline = async () => {
+    try {
+      await IdbStorage.deleteMission(route.id);
+      setIsPrepared(false);
+    } catch (err) {
+      console.error('Failed to remove offline mission:', err);
+    }
+  };
+
   const distanceKm = (route.totalDistanceMeters / 1000).toFixed(2);
   const distanceMiles = (route.totalDistanceMeters / 1609.34).toFixed(2);
 
@@ -150,6 +183,45 @@ export function RoutePreviewCard({
         </div>
       </div>
 
+      {/* Offline Prep Triggers */}
+      <div className="p-4 rounded-xl bg-surface border border-slate-700 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <WifiOff className="w-4 h-4 text-slate-300" />
+          <h3 className="text-sm font-semibold text-slate-200">Offline Preparedness</h3>
+        </div>
+        <p className="text-xs text-slate-400">
+          Caching this mission ensures route geometry, waypoints, and instructions remain available without network access. (Note: Map tiles from public providers are not cached offline per policy).
+        </p>
+        {isPrepared ? (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-emerald-950/20 border border-emerald-900/50 rounded-lg">
+            <div className="flex items-center gap-2 text-emerald-400">
+              <CheckCircle className="w-4 h-4" />
+              <span className="text-xs font-semibold">Mission is fully prepared for offline use</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<Trash2 className="w-4 h-4" />}
+              onClick={handleRemoveOffline}
+            >
+              Remove Cache
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            size="md"
+            fullWidth
+            disabled={isPreparing}
+            leftIcon={<Download className="w-4 h-4" />}
+            onClick={handlePrepareOffline}
+            className="text-primary hover:text-primary-light hover:border-primary"
+          >
+            {isPreparing ? 'Caching Mission Data...' : 'Prepare Mission for Offline Use'}
+          </Button>
+        )}
+      </div>
+
       {/* Action Triggers */}
       <div className="pt-2 flex flex-col sm:flex-row gap-3">
         <Button
@@ -166,10 +238,11 @@ export function RoutePreviewCard({
           variant="primary"
           size="lg"
           fullWidth
+          disabled={!isPrepared}
           leftIcon={<Play className="w-5 h-5 fill-current" />}
           onClick={onStartNavigation || (() => alert('Beginning mission.'))}
         >
-          Begin Walking Mission
+          {isPrepared ? 'Begin Walking Mission' : 'Must Prepare for Offline First'}
         </Button>
       </div>
     </Card>
