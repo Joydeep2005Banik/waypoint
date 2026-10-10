@@ -1,0 +1,98 @@
+{
+  "code": "Ok",
+  "routes": [
+    {
+      "geometry": {
+        "coordinates": [
+          [-0.1278, 51.5074],
+          [-0.1250, 51.5060],
+          [-0.1195, 51.5033],
+          [-0.1246, 51.5007],
+          [-0.1325, 51.5045],
+          [-0.1278, 51.5074]
+        ],
+        "type": "LineString"
+      },
+      "legs": [
+        {
+          "steps": [
+            {
+              "geometry": {
+                "coordinates": [
+                  [-0.1278, 51.5074],
+                  [-0.1250, 51.5060],
+                  [-0.1195, 51.5033]
+                ],
+                "type": "LineString"
+              },
+              "maneuver": {
+                "bearing_after": 135,
+                "bearing_before": 0,
+                "location": [-0.1278, 51.5074],
+                "type": "depart",
+                "instruction": "Depart southeast on Northumberland Avenue"
+              },
+              "name": "Northumberland Avenue",
+              "duration": 420.5,
+              "distance": 650.2
+            }
+          ],
+          "distance": 650.2,
+          "duration": 420.5,
+          "summary": "Northumberland Avenue"
+        },
+        {
+          "steps": [
+            {
+              "geometry": {
+                "coordinates": [
+                  [-0.1195, 51.5033],
+                  [-0.1246, 51.5007]
+                ],
+                "type": "LineString"
+              },
+              "maneuver": {
+                "bearing_after": 210,
+                "bearing_before": 135,
+                "location": [-0.1195, 51.5033],
+                "type": "turn",
+                "modifier": "right",
+                "instruction": "Turn right onto Queen's Walk"
+              },
+              "name": "Queen's Walk",
+              "duration": 360.0,
+              "distance": 520.0
+            }
+          ],
+          "distance": 520.0,
+          "duration": 360.0,
+          "summary": "Queen's Walk"
+        }
+      ],
+      "distance": 1170.2,
+      "duration": 780.5,
+      "weight_name": "duration",
+      "weight": 780.5
+    }
+  ],
+  "waypoints": [
+    {
+      "hint": "abc",
+      "distance": 2.1,
+      "name": "Trafalgar Square",
+      "location": [-0.1278, 51.5074]
+    },
+    {
+      "hint": "def",
+      "distance": 1.4,
+      "name": "Jubilee Gardens",
+      "location": [-0.1195, 51.5033]
+    },
+    {
+      "hint": "ghi",
+      "distance": 3.2,
+      "name": "Victoria Tower Gardens",
+      "location": [-0.1246, 51.5007]
+    }
+  ]
+}

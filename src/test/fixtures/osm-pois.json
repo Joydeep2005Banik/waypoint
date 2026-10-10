@@ -1,0 +1,73 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API",
+  "elements": [
+    {
+      "type": "node",
+      "id": 1001,
+      "lat": 51.5074,
+      "lon": -0.1278,
+      "tags": {
+        "name": "Trafalgar Square",
+        "tourism": "attraction",
+        "historic": "monument",
+        "leisure": "plaza"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1002,
+      "lat": 51.5033,
+      "lon": -0.1195,
+      "tags": {
+        "name": "Jubilee Gardens",
+        "leisure": "park",
+        "natural": "tree_row"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1003,
+      "lat": 51.5007,
+      "lon": -0.1246,
+      "tags": {
+        "name": "Victoria Tower Gardens",
+        "leisure": "park",
+        "heritage": "yes"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1004,
+      "lat": 51.5045,
+      "lon": -0.1325,
+      "tags": {
+        "name": "St James's Park Lake",
+        "leisure": "park",
+        "natural": "water"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1005,
+      "lat": 51.5089,
+      "lon": -0.1283,
+      "tags": {
+        "name": "National Gallery Art Monument",
+        "tourism": "artwork",
+        "historic": "memorial"
+      }
+    },
+    {
+      "type": "node",
+      "id": 1006,
+      "lat": 51.5060,
+      "lon": -0.1200,
+      "tags": {
+        "name": "Private Gated Courtyard",
+        "access": "private",
+        "leisure": "park"
+      }
+    }
+  ]
+}

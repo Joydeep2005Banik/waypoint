@@ -9,7 +9,7 @@ describe('Application Pages', () => {
   describe('HomePage', () => {
     it('renders mission setup form with duration and radius controls', () => {
       render(<HomePage />);
-      expect(screen.getByText('Mission Setup')).toBeInTheDocument();
+      expect(screen.getByText(/mission.*setup/i)).toBeInTheDocument();
       expect(screen.getByText('Eyes Up, Phone Away')).toBeInTheDocument();
       expect(screen.getByText('Greenway & Nature')).toBeInTheDocument();
       expect(screen.getByText('Architectural & Heritage')).toBeInTheDocument();

@@ -10,21 +10,46 @@ import {
   Footprints,
   SlidersHorizontal,
   ShieldAlert,
-  Info,
   Sparkles,
-  Play
+  Play,
+  RotateCw,
+  Loader2,
+  AlertCircle,
+  Repeat
 } from 'lucide-react';
+import { GeoCoordinates, ExplorationStyle, PreparedRoute } from '@/types/geo';
 import { Card } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { Badge } from '@/components/common/Badge';
 import { StatusBanner } from '@/components/common/StatusBanner';
+import { MapContainer } from '@/components/map/MapContainer';
+import { LocationSelector } from '@/components/route/LocationSelector';
+import { RoutePreviewCard } from '@/components/route/RoutePreviewCard';
+import { OverpassPoiService } from '@/services/poi';
+import { OsrmRoutingService } from '@/services/routing';
+import { NominatimGeocodingService } from '@/services/geocoding';
+import { RouteGenerator } from '@/services/route-generator';
 
 export default function HomePage() {
-  const [explorationStyle, setExplorationStyle] = useState<string>('greenway');
+  // Setup inputs state
+  const [selectedLocation, setSelectedLocation] = useState<GeoCoordinates | null>(null);
+  const [locationName, setLocationName] = useState<string>('');
+  const [explorationStyle, setExplorationStyle] = useState<ExplorationStyle>('greenway');
   const [durationMinutes, setDurationMinutes] = useState<number>(35);
   const [radiusKm, setRadiusKm] = useState<number>(1.2);
+  const [preferLoop, setPreferLoop] = useState<boolean>(true);
 
-  const explorationStyles = [
+  // Generation & result state
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [preparedRoute, setPreparedRoute] = useState<PreparedRoute | null>(null);
+
+  const explorationStyles: {
+    id: ExplorationStyle;
+    title: string;
+    description: string;
+    icon: React.ComponentType<{ className?: string }>;
+  }[] = [
     {
       id: 'greenway',
       title: 'Greenway & Nature',
@@ -40,154 +65,292 @@ export default function HomePage() {
     {
       id: 'discovery',
       title: 'Urban Discovery',
-      description: 'Quiet pedestrian alleys, community squares, and street art',
+      description: 'Pedestrian alleys, community squares, and street art',
+      icon: Footprints,
+    },
+    {
+      id: 'quiet',
+      title: 'Quiet Paths',
+      description: 'Low-traffic footways and residential living streets',
       icon: Footprints,
     },
   ];
 
+  const handleLocationChange = (coords: GeoCoordinates, name: string) => {
+    setSelectedLocation(coords);
+    setLocationName(name);
+    setPreparedRoute(null);
+    setGenerationError(null);
+  };
+
+  const handleGenerateRoute = async () => {
+    if (!selectedLocation) {
+      setGenerationError('Please select a starting location before generating a route.');
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerationError(null);
+
+    try {
+      const poiService = new OverpassPoiService();
+      const routingService = new OsrmRoutingService();
+      const geocodingService = new NominatimGeocodingService();
+      const generator = new RouteGenerator(poiService, routingService, undefined, geocodingService);
+
+      const route = await generator.generateRoute({
+        start: selectedLocation,
+        startName: locationName || undefined,
+        style: explorationStyle,
+        targetDurationMinutes: durationMinutes,
+        maxRadiusKm: radiusKm,
+        preferLoop,
+      });
+
+      setPreparedRoute(route);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : 'Failed to generate route. Please check your network or adjust exploration parameters.';
+      setGenerationError(msg);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleReset = () => {
+    setPreparedRoute(null);
+    setGenerationError(null);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Top Notification / Eyes-Up Reminder */}
+      {/* Eyes-Up Safety Banner */}
       <StatusBanner
         type="info"
         title="Eyes Up, Phone Away"
-        message="Waypoint Autopilot alerts you with chimes and vibration on arrival. Put your phone in your pocket while walking and stay aware of your surroundings."
+        message="Waypoint Autopilot provides glanceable waypoint navigation and chimes upon arrival. Keep your head up and put your phone in your pocket while walking."
       />
 
-      {/* Main Mission Setup Card */}
-      <Card variant="elevated" className="space-y-6">
-        <div className="flex items-center justify-between border-b border-surface-border pb-4">
-          <div>
-            <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
-              <Compass className="w-5 h-5 text-primary" />
-              <span>Mission Setup</span>
-            </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Configure parameters for your autonomous pedestrian walk
-            </p>
+      {/* Interactive Map Overview */}
+      <Card variant="default" className="p-2 sm:p-3 overflow-hidden space-y-2">
+        <div className="flex items-center justify-between px-2 pt-1 pb-2 border-b border-surface-border">
+          <div className="flex items-center gap-2">
+            <Compass className="w-4 h-4 text-primary" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
+              {preparedRoute ? 'Route Geometry Preview' : 'Interactive Map View'}
+            </span>
           </div>
-          <Badge variant="info" size="sm">Phase 1 Foundation</Badge>
+          {preparedRoute ? (
+            <Badge variant="success" size="sm">
+              {preparedRoute.waypoints.length} Points Connected
+            </Badge>
+          ) : selectedLocation ? (
+            <Badge variant="info" size="sm">Anchor Ready</Badge>
+          ) : (
+            <Badge variant="neutral" size="sm">No Anchor</Badge>
+          )}
         </div>
 
-        {/* Starting Point Anchor */}
-        <div className="space-y-2">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-primary" />
-            <span>Starting Location</span>
-          </label>
-          <div className="p-3.5 rounded-xl bg-surface-subtle border border-slate-800 flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-primary animate-ping" />
-              <div>
-                <div className="text-sm font-medium text-slate-200">Current Device GPS</div>
-                <div className="text-xs text-slate-400 font-mono">Foreground Geolocation Hook (Ready)</div>
-              </div>
-            </div>
-            <Badge variant="neutral" size="sm">Auto-Detect</Badge>
-          </div>
-        </div>
+        <MapContainer
+          center={selectedLocation || { latitude: 51.505, longitude: -0.09 }}
+          zoom={14}
+          waypoints={preparedRoute?.waypoints || []}
+          legs={preparedRoute?.legs || []}
+          boundingBox={preparedRoute?.boundingBox}
+          selectedLocation={selectedLocation}
+          onLocationSelect={
+            !preparedRoute
+              ? (coords) => handleLocationChange(coords, `Selected Map Point (${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)})`)
+              : undefined
+          }
+          className="h-[320px] sm:h-[380px] w-full rounded-xl overflow-hidden"
+        />
 
-        {/* Exploration Style Picker */}
-        <div className="space-y-2.5">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-accent" />
-            <span>Exploration Style</span>
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-            {explorationStyles.map((style) => {
-              const Icon = style.icon;
-              const isSelected = explorationStyle === style.id;
-              return (
-                <button
-                  key={style.id}
-                  type="button"
-                  onClick={() => setExplorationStyle(style.id)}
-                  className={`p-3.5 rounded-xl border text-left transition-all ${
-                    isSelected
-                      ? 'bg-primary-dim/30 border-primary text-slate-100 shadow-sm'
-                      : 'bg-surface-subtle border-slate-800 text-slate-300 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Icon className={`w-4 h-4 ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
-                    <span className="text-xs font-semibold">{style.title}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400 leading-snug">{style.description}</p>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Duration and Radius Sliders */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-          {/* Target Duration */}
-          <div className="p-3.5 rounded-xl bg-surface-subtle border border-slate-800 space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-primary" />
-                <span>Target Duration</span>
-              </label>
-              <span className="text-xs font-mono font-bold text-primary">{durationMinutes} mins</span>
-            </div>
-            <input
-              type="range"
-              min="15"
-              max="90"
-              step="5"
-              value={durationMinutes}
-              onChange={(e) => setDurationMinutes(Number(e.target.value))}
-              className="w-full accent-primary bg-slate-700 h-2 rounded-lg cursor-pointer"
-            />
-            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-              <span>15m Quick</span>
-              <span>45m Standard</span>
-              <span>90m Long</span>
-            </div>
-          </div>
-
-          {/* Maximum Radius */}
-          <div className="p-3.5 rounded-xl bg-surface-subtle border border-slate-800 space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-accent" />
-                <span>Max Exploration Radius</span>
-              </label>
-              <span className="text-xs font-mono font-bold text-accent">{radiusKm} km</span>
-            </div>
-            <input
-              type="range"
-              min="0.5"
-              max="3.0"
-              step="0.1"
-              value={radiusKm}
-              onChange={(e) => setRadiusKm(Number(e.target.value))}
-              className="w-full accent-accent bg-slate-700 h-2 rounded-lg cursor-pointer"
-            />
-            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-              <span>0.5 km (Close)</span>
-              <span>1.5 km (Moderate)</span>
-              <span>3.0 km (Wide)</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Button */}
-        <div className="pt-2">
-          <Button
-            variant="primary"
-            size="lg"
-            fullWidth
-            leftIcon={<Play className="w-5 h-5 fill-current" />}
-            onClick={() => alert('Phase 1 Foundation: Route generation and map engine unlock in Phase 2 & 3.')}
-          >
-            Generate Waypoint Route
-          </Button>
-          <p className="text-center text-[11px] text-slate-500 mt-2">
-            Deterministic route synthesis with OpenStreetMap pedestrian topology
-          </p>
+        <div className="text-[11px] text-slate-400 px-2 flex justify-between items-center">
+          <span>Map data © OpenStreetMap contributors · Routing via OSRM Foot Profile</span>
+          {!preparedRoute && (
+            <span className="hidden sm:inline text-slate-500 font-mono">Click map to drop anchor pin</span>
+          )}
         </div>
       </Card>
+
+      {/* Conditional: Either Route Preview OR Setup Form */}
+      {preparedRoute ? (
+        <RoutePreviewCard
+          route={preparedRoute}
+          onReset={handleReset}
+        />
+      ) : (
+        <Card variant="elevated" className="space-y-6">
+          <div className="flex items-center justify-between border-b border-surface-border pb-4">
+            <div>
+              <h1 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                <Compass className="w-5 h-5 text-primary" />
+                <span>Mission & Route Setup</span>
+              </h1>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Set geographic parameters for autonomous pedestrian exploration
+              </p>
+            </div>
+            <Badge variant="info" size="sm">Phase 2 Routing</Badge>
+          </div>
+
+          {/* Starting Point / Location Selector */}
+          <LocationSelector
+            selectedLocation={selectedLocation}
+            locationName={locationName}
+            onLocationChange={handleLocationChange}
+            disabled={isGenerating}
+          />
+
+          {/* Exploration Style Picker */}
+          <div className="space-y-2.5">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-accent" />
+              <span>Exploration Style</span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {explorationStyles.map((style) => {
+                const Icon = style.icon;
+                const isSelected = explorationStyle === style.id;
+                return (
+                  <button
+                    key={style.id}
+                    type="button"
+                    onClick={() => setExplorationStyle(style.id)}
+                    disabled={isGenerating}
+                    className={`p-3.5 rounded-xl border text-left transition-all ${
+                      isSelected
+                        ? 'bg-primary-dim/30 border-primary text-slate-100 shadow-sm'
+                        : 'bg-surface-subtle border-slate-800 text-slate-300 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Icon className={`w-4 h-4 ${isSelected ? 'text-primary' : 'text-slate-400'}`} />
+                      <span className="text-xs font-semibold">{style.title}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-snug">{style.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Duration, Radius, and Loop Controls */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            {/* Target Duration */}
+            <div className="p-3.5 rounded-xl bg-surface-subtle border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-primary" />
+                  <span>Target Duration</span>
+                </label>
+                <span className="text-xs font-mono font-bold text-primary">{durationMinutes} mins</span>
+              </div>
+              <input
+                type="range"
+                min="15"
+                max="90"
+                step="5"
+                value={durationMinutes}
+                onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                disabled={isGenerating}
+                className="w-full accent-primary bg-slate-700 h-2 rounded-lg cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                <span>15m Short</span>
+                <span>45m Moderate</span>
+                <span>90m Long</span>
+              </div>
+            </div>
+
+            {/* Maximum Radius */}
+            <div className="p-3.5 rounded-xl bg-surface-subtle border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-accent" />
+                  <span>Max Radius</span>
+                </label>
+                <span className="text-xs font-mono font-bold text-accent">{radiusKm} km</span>
+              </div>
+              <input
+                type="range"
+                min="0.5"
+                max="3.0"
+                step="0.1"
+                value={radiusKm}
+                onChange={(e) => setRadiusKm(Number(e.target.value))}
+                disabled={isGenerating}
+                className="w-full accent-accent bg-slate-700 h-2 rounded-lg cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                <span>0.5 km (Close)</span>
+                <span>1.5 km (Standard)</span>
+                <span>3.0 km (Wide)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Loop Preference Toggle */}
+          <div className="p-3.5 rounded-xl bg-surface-subtle border border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-surface border border-slate-700 flex items-center justify-center text-primary">
+                <Repeat className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-slate-200">Return Loop Circuit</div>
+                <div className="text-[11px] text-slate-400">
+                  {preferLoop ? 'Route will loop back to your starting point' : 'One-way exploration ending at last waypoint'}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPreferLoop(!preferLoop)}
+              disabled={isGenerating}
+              className={`w-12 h-6 flex items-center rounded-full p-1 transition-colors ${
+                preferLoop ? 'bg-primary' : 'bg-slate-700'
+              }`}
+            >
+              <div
+                className={`bg-slate-950 w-4 h-4 rounded-full shadow-md transform transition-transform ${
+                  preferLoop ? 'translate-x-6' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Error Banner if Generation Failed */}
+          {generationError && (
+            <div className="p-3.5 rounded-xl bg-red-950/80 border border-red-800 text-red-200 text-xs flex items-start gap-2.5">
+              <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+              <div className="flex-1 space-y-1">
+                <div className="font-semibold text-red-100">Route Generation Failed</div>
+                <div className="leading-relaxed">{generationError}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Submit Action Button */}
+          <div className="pt-2">
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              disabled={isGenerating || !selectedLocation}
+              leftIcon={isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-current" />}
+              onClick={handleGenerateRoute}
+            >
+              {isGenerating ? 'Discovering Destinations & Calculating Route...' : 'Generate Waypoint Route'}
+            </Button>
+            <p className="text-center text-[11px] text-slate-500 mt-2">
+              Retrieves real OpenStreetMap destinations and calculates true pedestrian path geometry
+            </p>
+          </div>
+        </Card>
+      )}
 
       {/* Safety and Privacy Guardrails Card */}
       <Card variant="subtle" className="space-y-3">
@@ -197,7 +360,7 @@ export default function HomePage() {
         </div>
         <ul className="text-xs text-slate-400 space-y-1.5 list-disc pl-4 leading-relaxed">
           <li><strong>Zero Remote Tracking:</strong> Location coordinates and mission logs remain entirely on your device in IndexedDB.</li>
-          <li><strong>Pedestrian Rights-of-Way:</strong> Routes exclude private property, motorways, and industrial corridors.</li>
+          <li><strong>Pedestrian Rights-of-Way:</strong> Routes are calculated along validated walkways and pedestrian corridors.</li>
           <li><strong>Road Crossing Priority:</strong> Never look at your device while traversing street intersections or uneven terrain.</li>
         </ul>
       </Card>
