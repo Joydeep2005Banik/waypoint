@@ -15,7 +15,8 @@ import {
   RotateCw,
   Loader2,
   AlertCircle,
-  Repeat
+  Repeat,
+  Navigation
 } from 'lucide-react';
 import { GeoCoordinates, ExplorationStyle, PreparedRoute } from '@/types/geo';
 import { Card } from '@/components/common/Card';
@@ -25,6 +26,8 @@ import { StatusBanner } from '@/components/common/StatusBanner';
 import { MapContainer } from '@/components/map/MapContainer';
 import { LocationSelector } from '@/components/route/LocationSelector';
 import { RoutePreviewCard } from '@/components/route/RoutePreviewCard';
+import { ActiveNavigationPanel } from '@/components/navigation/ActiveNavigationPanel';
+import { useNavigationAutopilot } from '@/hooks/useNavigationAutopilot';
 import { OverpassPoiService } from '@/services/poi';
 import { OsrmRoutingService } from '@/services/routing';
 import { NominatimGeocodingService } from '@/services/geocoding';
@@ -39,10 +42,14 @@ export default function HomePage() {
   const [radiusKm, setRadiusKm] = useState<number>(1.2);
   const [preferLoop, setPreferLoop] = useState<boolean>(true);
 
-  // Generation & result state
+  // Generation & navigation state
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [preparedRoute, setPreparedRoute] = useState<PreparedRoute | null>(null);
+  const [isNavigating, setIsNavigating] = useState<boolean>(false);
+
+  // Autopilot navigation hook
+  const autopilot = useNavigationAutopilot(isNavigating ? preparedRoute : null);
 
   const explorationStyles: {
     id: ExplorationStyle;
@@ -119,19 +126,35 @@ export default function HomePage() {
     }
   };
 
+  const handleStartMission = () => {
+    setIsNavigating(true);
+    // State machine automatically starts via hook on active state
+    setTimeout(() => {
+      autopilot.start();
+    }, 50);
+  };
+
   const handleReset = () => {
+    autopilot.resetMission();
+    setIsNavigating(false);
     setPreparedRoute(null);
     setGenerationError(null);
   };
 
+  // Determine active route & snapshot for map display
+  const activeRoute = autopilot.snapshot?.route || preparedRoute;
+  const isCurrentlyNavigating = isNavigating && autopilot.snapshot !== null;
+
   return (
     <div className="space-y-6">
       {/* Eyes-Up Safety Banner */}
-      <StatusBanner
-        type="info"
-        title="Eyes Up, Phone Away"
-        message="Waypoint Autopilot provides glanceable waypoint navigation and chimes upon arrival. Keep your head up and put your phone in your pocket while walking."
-      />
+      {!isCurrentlyNavigating && (
+        <StatusBanner
+          type="info"
+          title="Eyes Up, Phone Away"
+          message="Waypoint Autopilot provides glanceable waypoint navigation and chimes upon arrival. Keep your head up and put your phone in your pocket while walking."
+        />
+      )}
 
       {/* Interactive Map Overview */}
       <Card variant="default" className="p-2 sm:p-3 overflow-hidden space-y-2">
@@ -139,12 +162,20 @@ export default function HomePage() {
           <div className="flex items-center gap-2">
             <Compass className="w-4 h-4 text-primary" />
             <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
-              {preparedRoute ? 'Route Geometry Preview' : 'Interactive Map View'}
+              {isCurrentlyNavigating
+                ? 'Active Navigation Map'
+                : activeRoute
+                ? 'Route Geometry Preview'
+                : 'Interactive Map View'}
             </span>
           </div>
-          {preparedRoute ? (
+          {isCurrentlyNavigating ? (
+            <Badge variant="success" size="sm" dot>
+              Autopilot Active
+            </Badge>
+          ) : activeRoute ? (
             <Badge variant="success" size="sm">
-              {preparedRoute.waypoints.length} Points Connected
+              {activeRoute.waypoints.length} Points Connected
             </Badge>
           ) : selectedLocation ? (
             <Badge variant="info" size="sm">Anchor Ready</Badge>
@@ -154,33 +185,51 @@ export default function HomePage() {
         </div>
 
         <MapContainer
-          center={selectedLocation || { latitude: 51.505, longitude: -0.09 }}
-          zoom={14}
-          waypoints={preparedRoute?.waypoints || []}
-          legs={preparedRoute?.legs || []}
-          boundingBox={preparedRoute?.boundingBox}
-          selectedLocation={selectedLocation}
+          center={
+            autopilot.snapshot?.lastValidGps ||
+            selectedLocation || { latitude: 51.505, longitude: -0.09 }
+          }
+          zoom={15}
+          waypoints={activeRoute?.waypoints || []}
+          legs={activeRoute?.legs || []}
+          boundingBox={activeRoute?.boundingBox}
+          selectedLocation={autopilot.snapshot?.lastValidGps || selectedLocation}
           onLocationSelect={
-            !preparedRoute
-              ? (coords) => handleLocationChange(coords, `Selected Map Point (${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)})`)
+            !activeRoute && !isCurrentlyNavigating
+              ? (coords) =>
+                  handleLocationChange(
+                    coords,
+                    `Selected Map Point (${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)})`
+                  )
               : undefined
           }
-          className="h-[320px] sm:h-[380px] w-full rounded-xl overflow-hidden"
+          className="h-[300px] sm:h-[360px] w-full rounded-xl overflow-hidden"
         />
 
         <div className="text-[11px] text-slate-400 px-2 flex justify-between items-center">
-          <span>Map data © OpenStreetMap contributors · Routing via OSRM Foot Profile</span>
-          {!preparedRoute && (
+          <span>Map data © OpenStreetMap contributors · OSRM Foot Profile</span>
+          {!activeRoute && !isCurrentlyNavigating && (
             <span className="hidden sm:inline text-slate-500 font-mono">Click map to drop anchor pin</span>
           )}
         </div>
       </Card>
 
-      {/* Conditional: Either Route Preview OR Setup Form */}
-      {preparedRoute ? (
+      {/* Active Navigation Panel OR Route Preview OR Mission Setup Form */}
+      {isCurrentlyNavigating && autopilot.snapshot ? (
+        <ActiveNavigationPanel
+          snapshot={autopilot.snapshot}
+          onPause={autopilot.pause}
+          onResume={autopilot.resume}
+          onCancel={autopilot.cancel}
+          onManualConfirm={autopilot.manualConfirmArrival}
+          onRecoverLocation={autopilot.recoverLocation}
+          onReset={handleReset}
+        />
+      ) : preparedRoute ? (
         <RoutePreviewCard
           route={preparedRoute}
           onReset={handleReset}
+          onStartNavigation={handleStartMission}
         />
       ) : (
         <Card variant="elevated" className="space-y-6">
@@ -194,7 +243,7 @@ export default function HomePage() {
                 Set geographic parameters for autonomous pedestrian exploration
               </p>
             </div>
-            <Badge variant="info" size="sm">Phase 2 Routing</Badge>
+            <Badge variant="info" size="sm">Phase 3 Autopilot</Badge>
           </div>
 
           {/* Starting Point / Location Selector */}
