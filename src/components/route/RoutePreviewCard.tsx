@@ -4,13 +4,11 @@ import React from 'react';
 import {
   Footprints,
   Clock,
-  MapPin,
   Sparkles,
   RotateCcw,
-  CheckCircle2,
   Play,
-  Share2,
-  Navigation
+  Eye,
+  Cpu
 } from 'lucide-react';
 import { PreparedRoute } from '@/types/geo';
 import { Card } from '@/components/common/Card';
@@ -55,6 +53,27 @@ export function RoutePreviewCard({
         </div>
       </div>
 
+      {/* AI Theme & Mission Brief Box */}
+      {route.thematicSummary && (
+        <div className="p-3.5 rounded-xl bg-surface-subtle border border-slate-800 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-accent flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Theme: {route.theme || route.explorationStyle}</span>
+            </div>
+            {route.aiEnrichment && (
+              <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
+                <Cpu className="w-3 h-3 text-primary" />
+                {route.aiEnrichment.provider === 'ollama' ? 'Ollama Open-Weight' : 'Deterministic Brief'}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            {route.thematicSummary}
+          </p>
+        </div>
+      )}
+
       {/* Metrics Row (Distance, Time, Legs) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="p-3 rounded-xl bg-surface-subtle border border-slate-800 space-y-0.5">
@@ -89,7 +108,7 @@ export function RoutePreviewCard({
         </div>
       </div>
 
-      {/* Ordered Waypoint List */}
+      {/* Ordered Waypoint List with Observation Prompts */}
       <div className="space-y-2.5">
         <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
           <span>Ordered Waypoint Sequence</span>
@@ -97,7 +116,7 @@ export function RoutePreviewCard({
         </div>
 
         <div className="space-y-2">
-          {route.waypoints.map((wp, idx) => (
+          {route.waypoints.map((wp) => (
             <div
               key={wp.id}
               className="p-3 rounded-xl bg-surface-subtle border border-slate-800/80 flex items-start gap-3 hover:border-slate-700 transition-colors"
@@ -106,7 +125,7 @@ export function RoutePreviewCard({
                 {wp.isStart ? 'S' : wp.isEnd ? 'E' : wp.order}
               </div>
 
-              <div className="flex-1 min-w-0 space-y-0.5">
+              <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-xs font-bold text-slate-100 truncate">{wp.name}</div>
                   <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-surface border border-slate-700 text-slate-400 shrink-0">
@@ -116,6 +135,12 @@ export function RoutePreviewCard({
                 <div className="text-[11px] text-slate-300 leading-snug">
                   {wp.instruction}
                 </div>
+                {wp.observationPrompt && (
+                  <div className="text-[11px] text-amber-300/90 flex items-start gap-1 bg-amber-950/30 border border-amber-800/40 rounded-lg p-1.5">
+                    <Eye className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
+                    <span>{wp.observationPrompt}</span>
+                  </div>
+                )}
                 <div className="text-[10px] text-slate-500 font-mono">
                   Coordinates: {wp.coordinates.latitude.toFixed(5)}, {wp.coordinates.longitude.toFixed(5)} · Radius: ±{wp.arrivalRadiusMeters}m
                 </div>
@@ -142,7 +167,7 @@ export function RoutePreviewCard({
           size="lg"
           fullWidth
           leftIcon={<Play className="w-5 h-5 fill-current" />}
-          onClick={onStartNavigation || (() => alert('Navigation engine activates in Phase 5.'))}
+          onClick={onStartNavigation || (() => alert('Beginning mission.'))}
         >
           Begin Walking Mission
         </Button>

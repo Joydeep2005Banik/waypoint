@@ -1,3 +1,5 @@
+import { MissionEnrichmentResult } from './ai';
+
 export interface GeoCoordinates {
   latitude: number;
   longitude: number;
@@ -49,6 +51,8 @@ export interface Waypoint {
   tags?: Record<string, string>;
   isStart?: boolean;
   isEnd?: boolean;
+  observationPrompt?: string;
+  historicalContext?: string;
 }
 
 export interface PreparedRoute {
@@ -69,6 +73,9 @@ export interface PreparedRoute {
   boundingBox: BoundingBox;
   createdAt: string;
   candidateScore: number;
+  theme?: string;
+  thematicSummary?: string;
+  aiEnrichment?: MissionEnrichmentResult;
 }
 
 export interface RouteGenerationOptions {

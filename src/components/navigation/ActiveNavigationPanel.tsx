@@ -16,7 +16,8 @@ import {
   ArrowRight,
   ShieldAlert,
   Check,
-  Award
+  Award,
+  Eye
 } from 'lucide-react';
 import { NavigationSnapshot } from '@/types/navigation';
 import { Card } from '@/components/common/Card';
@@ -226,6 +227,17 @@ export function ActiveNavigationPanel({
             <div className="p-3 rounded-xl bg-surface border border-slate-700/80 text-xs text-slate-200 leading-relaxed font-medium">
               {currentWaypoint.instruction}
             </div>
+
+            {/* Glanceable Observation Prompt */}
+            {currentWaypoint.observationPrompt && (
+              <div className="text-[11px] text-amber-300/90 flex items-start gap-1.5 bg-amber-950/40 border border-amber-800/50 rounded-xl p-2.5">
+                <Eye className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
+                <div className="leading-snug">
+                  <span className="font-semibold text-amber-200">Look up: </span>
+                  {currentWaypoint.observationPrompt}
+                </div>
+              </div>
+            )}
 
             {/* Arrival Confirmation Dwell Progress Bar */}
             {isArrivalPending && (

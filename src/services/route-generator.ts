@@ -13,6 +13,8 @@ import {
   Waypoint,
   RouteLeg,
 } from '@/types/geo';
+import { IAIProvider } from '@/types/ai';
+import { AIProviderService } from './ai/ai-service';
 import {
   haversineDistance,
   calculateBoundingBox,
@@ -26,17 +28,20 @@ export class RouteGenerator implements IRouteGenerator {
   private routingService: IRoutingService;
   private scorer: IRouteScorer;
   private geocodingService?: IGeocodingService;
+  private aiProvider: IAIProvider;
 
   constructor(
     poiService: IPoiService,
     routingService: IRoutingService,
     scorer: IRouteScorer = new DeterministicRouteScorer(),
-    geocodingService?: IGeocodingService
+    geocodingService?: IGeocodingService,
+    aiProvider?: IAIProvider
   ) {
     this.poiService = poiService;
     this.routingService = routingService;
     this.scorer = scorer;
     this.geocodingService = geocodingService;
+    this.aiProvider = aiProvider || new AIProviderService();
   }
 
   async generateRoute(options: RouteGenerationOptions): Promise<PreparedRoute> {
@@ -217,13 +222,54 @@ export class RouteGenerator implements IRouteGenerator {
       quiet: 'Quiet Paths & Parkways',
     };
 
-    const routeTitle = `${styleTitles[options.style] || 'Waypoint Route'} (${
+    let routeTitle: string = `${styleTitles[options.style] || 'Waypoint Route'} (${
       options.preferLoop ? 'Loop' : 'Point-to-Point'
     })`;
+    let routeTheme: string = options.style;
+    let routeSummary: string = `A curated ${options.targetDurationMinutes}-minute walking route connecting ${finalWaypoints.length} waypoints.`;
+    let aiEnrichmentResult = undefined;
+
+    // 8. Enrich with open-weight AI or deterministic fallback
+    try {
+      const enrichment = await this.aiProvider.enrichMission({
+        explorationStyle: options.style,
+        targetDurationMinutes: options.targetDurationMinutes,
+        totalDistanceMeters: bestRoute.totalDistanceMeters,
+        isLoop: options.preferLoop,
+        startLocationName: startName,
+        waypoints: finalWaypoints.map((w) => ({
+          id: w.id,
+          name: w.name,
+          category: w.category,
+          order: w.order,
+          tags: w.tags,
+        })),
+      });
+
+      aiEnrichmentResult = enrichment;
+      if (enrichment.title) routeTitle = enrichment.title;
+      if (enrichment.theme) routeTheme = enrichment.theme;
+      if (enrichment.summary) routeSummary = enrichment.summary;
+
+      // Attach enriched instructions and observation prompts to waypoints
+      for (const item of enrichment.waypoints) {
+        const matchingWp = finalWaypoints.find((w) => w.id === item.waypointId);
+        if (matchingWp) {
+          if (item.instruction) matchingWp.instruction = item.instruction;
+          if (item.observationPrompt) matchingWp.observationPrompt = item.observationPrompt;
+          if (item.historicalContext) matchingWp.historicalContext = item.historicalContext;
+        }
+      }
+    } catch (enrichError: unknown) {
+      console.warn('AI enrichment skipped, using deterministic route instructions.', enrichError);
+    }
 
     return {
       id: `route-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       title: routeTitle,
+      theme: routeTheme,
+      thematicSummary: routeSummary,
+      aiEnrichment: aiEnrichmentResult,
       explorationStyle: options.style,
       startLocation: {
         name: startName,

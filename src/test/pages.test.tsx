@@ -41,14 +41,14 @@ describe('Application Pages', () => {
     it('renders system settings and allows toggling AI providers', () => {
       render(<SettingsPage />);
       expect(screen.getByText('System Settings & Diagnostics')).toBeInTheDocument();
-      expect(screen.getByText('Deterministic Provider')).toBeInTheDocument();
+      expect(screen.getByText('Deterministic Engine')).toBeInTheDocument();
       expect(screen.getByText('Local Ollama Inference')).toBeInTheDocument();
 
       const ollamaBtn = screen.getByText('Local Ollama Inference').closest('button');
       if (ollamaBtn) {
         fireEvent.click(ollamaBtn);
       }
-      expect(screen.getByText('Ollama API Base URL')).toBeInTheDocument();
+      expect(screen.getByText('Ollama Base URL')).toBeInTheDocument();
     });
   });
 });
